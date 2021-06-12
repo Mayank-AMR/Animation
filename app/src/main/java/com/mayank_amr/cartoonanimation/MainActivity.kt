@@ -1,112 +1,101 @@
 package com.mayank_amr.cartoonanimation
 
+import android.annotation.SuppressLint
 import android.graphics.drawable.AnimationDrawable
 import android.os.Bundle
-import android.util.Log
 import android.view.MotionEvent
 import android.widget.Button
 import android.widget.ImageView
 import androidx.appcompat.app.AppCompatActivity
+import java.lang.Math.PI
+import kotlin.math.asin
+import kotlin.math.hypot
 
 
 class MainActivity : AppCompatActivity() {
-    private val TAG = "MainActivity"
+    private lateinit var cartoonImageView: ImageView
+    private lateinit var playPauseButton: Button
 
-    //val titleBarHeight = 220
+    private var startAngle: Double = 0.0
+    private var currentAngle: Double = 0.0
 
-    // there is no 0th quadrant, to keep it simple the first value gets ignored
+    private var isAnimating = false
+    private lateinit var lipsSyncAnimation: AnimationDrawable
 
-    lateinit var imageView: ImageView
-    var startAngle: Double = 0.0
-    var currentAngle: Double = 0.0
-
-    var isAnimating = false
-    var dialerHeight: Int = 0
-    var dialerWidth: Int = 0
-    lateinit var lipsyncAnimation: AnimationDrawable
-
-
-    //private lateinit var mDetector: GestureDetectorCompat
-    //var quadrantTouched = Array<Boolean>(5) { false }
+    private var displayHeight: Int = 0
+    private var displayWidth: Int = 0
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        //Getting the display height and width..
         resources.displayMetrics.let { displayMetrics ->
-            dialerHeight = displayMetrics.heightPixels
-            dialerWidth = displayMetrics.widthPixels
-
-        }
-        //mDetector = GestureDetectorCompat(this, MyGestureListener())
-
-
-        imageView = findViewById<ImageView>(R.id.imageView)
-
-        imageView.apply {
-            setBackgroundResource(R.drawable.lipsync_animation)
-            lipsyncAnimation = background as AnimationDrawable
+            displayHeight = displayMetrics.heightPixels
+            displayWidth = displayMetrics.widthPixels
         }
 
-        findViewById<Button>(R.id.button).setOnClickListener {
-            when (isAnimating) {
-                true -> stopLipsync()
-                false -> startLipsync()
-            }
-        }
+        cartoonImageView = findViewById(R.id.cartoon_imageView)
+        playPauseButton = findViewById(R.id.play_pause_button)
+
+        // Initialise cartoonImageview and playPauseButton..
+        initialiseCartoonImageView(cartoonImageView)
+        initialisePlayPauseButton(playPauseButton)
     }
 
 
     override fun onTouchEvent(event: MotionEvent?): Boolean {
         when (event?.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
-                // Finger touched the screen
-                Log.d(TAG, "onTouchEvent ActionDown: X: ${event.x} Y: ${event.y}")
-
+                // When Finger touched the screen..
                 currentAngle = getAngle(event.x, event.y)
-                Log.d(TAG, "onTouchEvent ActionMove: currentAngle: $currentAngle")
-                imageView.rotation = ((startAngle - currentAngle).toFloat())
-
-                Log.d(TAG, "onTouchEvent ActionDown: StartAngle: $startAngle")
-
+                cartoonImageView.rotation = ((startAngle - currentAngle).toFloat())
             }
             MotionEvent.ACTION_MOVE -> {
-                // Finger moves on the screen.
+                // When Finger moves on the screen.
                 currentAngle = getAngle(event.x, event.y)
-                Log.d(TAG, "onTouchEvent ActionMove: currentAngle: $currentAngle")
-                imageView.rotation = ((startAngle - currentAngle).toFloat())
-                //startAngle = currentAngle
-                Log.d(TAG, "onTouchEvent ActionMove: Re StartAngle: $startAngle")
-
-
-            }
-            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                // Released the finger.
-
+                cartoonImageView.rotation = ((startAngle - currentAngle).toFloat())
             }
         }
         return true
     }
 
+    private fun startLipsSync() {
+        isAnimating = true
+        lipsSyncAnimation.start()
+    }
 
-    public fun getAngle(xTouch: Float, yTouch: Float): Double {
-
-
-        val x: Double = xTouch - dialerWidth / 2.0
-        val y: Double = dialerHeight - yTouch - dialerHeight / 2.0
-
-        return when (getQuadrant(x, y)) {
-            1 -> Math.asin(y / Math.hypot(x, y)) * 180 / Math.PI
-            2 -> 180 - Math.asin(y / Math.hypot(x, y)) * 180 / Math.PI
-            3 -> 180 + -1 * Math.asin(y / Math.hypot(x, y)) * 180 / Math.PI
-            4 -> 360 + Math.asin(y / Math.hypot(x, y)) * 180 / Math.PI
-            else -> 0.0
-        }
+    private fun stopLipsSync() {
+        isAnimating = false
+        lipsSyncAnimation.stop()
     }
 
 
-    public fun getQuadrant(x: Double, y: Double): Int {
+    @SuppressLint("SetTextI18n")
+    private fun initialisePlayPauseButton(playPauseButton: Button?) {
+        playPauseButton?.setOnClickListener {
+            when (isAnimating) {
+                true -> {
+                    playPauseButton.text = "Play"
+                    stopLipsSync()
+                }
+                false -> {
+                    playPauseButton.text = "Stop"
+                    startLipsSync()
+                }
+            }
+        }
+    }
+
+    private fun initialiseCartoonImageView(cartoonImageView: ImageView?) {
+        cartoonImageView?.apply {
+            setBackgroundResource(R.drawable.lipsync_animation)
+            lipsSyncAnimation = background as AnimationDrawable
+        }
+    }
+
+    private fun getQuadrant(x: Double, y: Double): Int {
         return if (x >= 0) {
             if (y >= 0) 1 else 4
         } else {
@@ -114,14 +103,17 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun startLipsync() {
-        isAnimating = true
-        lipsyncAnimation.start()
-    }
+    private fun getAngle(xTouch: Float, yTouch: Float): Double {
+        val displayMidX: Double = xTouch - displayWidth / 2.0
+        val displayMidY: Double = displayHeight - yTouch - displayHeight / 2.0
 
-    private fun stopLipsync() {
-        isAnimating = false
-        lipsyncAnimation.stop()
+        return when (getQuadrant(displayMidX, displayMidY)) {
+            1 -> asin(displayMidY / hypot(displayMidX, displayMidY)) * 180 / PI
+            2 -> 180 - asin(displayMidY / hypot(displayMidX, displayMidY)) * 180 / PI
+            3 -> 180 + -1 * asin(displayMidY / hypot(displayMidX, displayMidY)) * 180 / PI
+            4 -> 360 + asin(displayMidY / hypot(displayMidX, displayMidY)) * 180 / PI
+            else -> 0.0
+        }
     }
 
 }
